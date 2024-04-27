@@ -25,11 +25,25 @@ static GLuint _pId = 0;
 static GLuint _quad = 0;
 int a = 0;
 
-bool Is_Creating_Character = false;
-SDL_Event event;
+
+bool tour = true;
+//Le joeur veut créer un personnage depuis un château
+int CC_POS_X, CC_POS_Y, CC_TYPE;
+bool CC_which_one = false;
+bool CC_which_character = false;
+bool CC_confirmation = false;
+
+//Le joueur veut déplacer un personnage
+bool MC_which_one = false;
+bool MC_where = false;
+
+bool mouseClickPending = false;
+int mouseX = 0;
+int mouseY = 0;
 
 Pion ***Plateau = nullptr;
 Info_Plateau *Info_Plateaus = nullptr;
+Info_Joueurs Info_Joueurss;
 bool initialisationPlateau = true;
 
 GLuint _texId[2] = { 0 };
@@ -41,12 +55,14 @@ enum kyes_t {
 	KDOWN,
 	KPAGEUP,
 	KPAGEDOWN,
-	K_P,
-	K_CLICK
+	K_C, //Veut créer un personnage depuis un château
+	K_G, //Guerrier
+	K_S, //Seigneur
+	K_P //Paysans
 };
 
 /*!\brief virtual keyboard for direction commands */
-static GLuint _keys[] = {0, 0, 0, 0, 0, 0, 0, 0};
+static GLuint _keys[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
 typedef struct cam_t cam_t;
 /*!\brief a data structure for storing camera position and
@@ -72,12 +88,13 @@ static GLfloat rot[3] = {0, 0, 0};
 static void init(void);
 static void quit(void);
 static void resize(int w, int h);
+static void handleMouseEvents(void);
 static void idle(void);
 static void draw(void);
 static void keydown(int keycode);
 static void keyup(int keycode);
 static void jeu(void);
-static float *caseChoisie(int x, int y);
+static float *caseChoisie(float x, float y);
 
 static void init(void) {
 	glCullFace(GL_BACK);
@@ -122,7 +139,7 @@ int main(int argc, char ** argv) {
 			}
 		}
 
-		Info_Joueurs *Info_Joueurss = new Info_Joueurs[sizeof(Info_Joueurs)];
+		Info_Joueurs Info_Joueurss;
 		Info_Plateau *Info_Plateaus = new Info_Plateau[sizeof(Info_Plateau)];
 
 		Chateau Chateau_Bleu{true};
@@ -168,7 +185,37 @@ static void resize(int w, int h) {
 	gl4duBindMatrix("modelViewMatrix");
 }
 
+// Fonction pour traiter les événements de souris
+void handleMouseEvents() {
+	int i, j;
+    SDL_Event event;
+    if (SDL_WaitEvent(&event)) {
+        switch (event.type) {
+            case SDL_MOUSEBUTTONDOWN:
+                if (event.button.button == SDL_BUTTON_LEFT) {
+                    mouseX = event.button.x;
+                    mouseY = event.button.y;
+                    mouseClickPending = true;
+
+					float *coordonnees = caseChoisie(mouseX, mouseY);
+					//cout << (int)coordonnees[0] << ", " << (int)coordonnees[1] << endl;
+
+					if ((int)coordonnees[0] != -1 && (int)coordonnees[1] != -1){
+						i = (int)coordonnees[0], j = (int)coordonnees[1];
+						if (Plateau[i][j] == nullptr || Plateau[i][j] -> type() != 'C' || Plateau[i][j] -> RETURN_OWNER() != tour) cout << "Veillez choisir un château qui vous appartient" << endl;
+						else if (Plateau[i][j] -> type() == 'C'){
+							CC_POS_X = i, CC_POS_Y = j;
+							CC_which_character = true; //Input valide, on passe au choix du personnage à créer
+							CC_which_one = false;
+						}
+            		}
+                }
+                break;
+        }
+    }
+}
 static void idle(void) {
+	int i, j;
 	static float t0 = 0.0f;
 	float t, dt, dtheta = M_PI, step = 1.0f;
 	dt = ((t = (float)gl4dGetElapsedTime()) - t0) / 1000.0f;
@@ -186,15 +233,49 @@ static void idle(void) {
 	_cam.x += dt * step * sin(_cam.theta);
 	_cam.z += dt * step * cos(_cam.theta);
 	}
-	if(_keys[K_P]) Is_Creating_Character = true;
-	if (Is_Creating_Character && SDL_WaitEvent(&event)) {
-		switch (event.type) {
-			case SDL_MOUSEBUTTONDOWN:
-            if (event.button.button == SDL_BUTTON_LEFT) {
-				float *coordonnees = caseChoisie((float)event.button.x, (float)event.button.y);
-				float i = coordonnees[0], j = coordonnees[1]; 
-            }
+
+	//Création de personnages via châteaux
+	if(_keys[K_C]){
+		CC_which_one = true;
+		_keys[K_C] = 0; // A mettre absolument
+	}
+
+	if (CC_which_one == true){
+		handleMouseEvents();
+	}
+
+	if (CC_which_character && _keys[K_G]){
+		cout << "Guerrier" << endl;
+		CC_TYPE = 1;
+		CC_which_character = false;
+		CC_confirmation = true;
+	}
+	if (CC_which_character && _keys[K_P]){
+		cout << "Paysan" << endl;
+		CC_TYPE = 2;
+		CC_which_character = false;
+		CC_confirmation = true;
+	}
+	if (CC_which_character && _keys[K_S]){
+		cout << "Seigneur" << endl;
+		CC_TYPE = 3;
+		CC_which_character = false;
+		CC_confirmation = true;
+	}
+
+	if (CC_confirmation){
+		Chateau nouveauChateau(tour);
+
+    	int resultat = nouveauChateau.creer_personnage(Plateau, CC_POS_X, CC_POS_Y, &Info_Joueurss, CC_TYPE, tour);
+		if (resultat == 0){
+			tour = !tour;
 		}
+		else{
+			if (resultat == -1) cout << "Mauvais imput" << endl;
+			else if (resultat == -2) cout << "Pas assez d'or" << endl;
+			if (resultat == -1) cout << "Pas de place autour du château" << endl;
+		}
+		CC_confirmation = false;
 	}
 	if(!_pause) rot[1] += 90.0f * dt;
 	jeu();
@@ -221,8 +302,17 @@ static void keydown(int keycode) {
 		case GL4DK_u:
 			_keys[KPAGEUP] = 1;
 			break;
+		case GL4DK_c:
+			_keys[K_C] = 1;
+			break;
+		case GL4DK_g:
+			_keys[K_G] = 1;
+			break;
 		case GL4DK_p:
 			_keys[K_P] = 1;
+			break;
+		case GL4DK_s:
+			_keys[K_S] = 1;
 			break;
 		case GL4DK_ESCAPE:
 			case 'q':
@@ -241,9 +331,11 @@ static void keydown(int keycode) {
 		case GL4DK_SPACE:
 			_pause = !_pause;
 			break;
+		/*
 		case GL4DK_c:
 			_center_view = !_center_view;
 			break;
+		*/
 		default:
 			break;
 	}
@@ -269,8 +361,17 @@ static void keyup(int keycode) {
 		case GL4DK_u:
 			_keys[KPAGEUP] = 0;
 			break;
+		case GL4DK_c:
+			_keys[K_C] = 0;
+			break;
+		case GL4DK_g:
+			_keys[K_G] = 0;
+			break;
 		case GL4DK_p:
 			_keys[K_P] = 0;
+			break;
+		case GL4DK_s:
+			_keys[K_S] = 0;
 			break;
 		default:
 			break;
@@ -278,26 +379,31 @@ static void keyup(int keycode) {
 }
 
 static void jeu(void) {
-	if (Is_Creating_Character){
-		
-	}
 }
 
 //Case choisie par l'évenement de click de souris
-static float *caseChoisie(int x, int y){
+static float *caseChoisie(float x, float y){
 	float x_0 = 245.0f, x_19 = 755.0f;
 	float y_0 = 115.0f, y_19 = 625.0f;
 	static float coordonnees[2];
-	cout << x << ", " << y << endl;
-	for (float i = 0.0f, caseActuelle = 0.0f; (int)i < COLONNE; i ++, caseActuelle += (x_19 - x_0) / COLONNE){
-		if (x > caseActuelle) coordonnees[0] = i;
+
+	if (x >= x_0 && x <= x_19){
+		for (float i = 0.0f, caseActuelle = x_0; (int)i < COLONNE; i++, caseActuelle += (x_19 - x_0) / COLONNE){
+			if (x > caseActuelle) coordonnees[0] = i;
+		}
 	}
-	for (float i = 0.0f, caseActuelle = 0.0f; (int)i < LIGNE; i ++, caseActuelle += (y_19 - y_0) / LIGNE){
-		if (y > caseActuelle) coordonnees[1] = i;
+	else coordonnees[0] = -1.0f; //Cas où le lick dépasse le tableau
+
+	if (y >= y_0 && y <= y_19){
+		for (float i = 0.0f, caseActuelle = y_0; (int)i < LIGNE; i++, caseActuelle += (y_19 - y_0) / LIGNE){
+			if (y > caseActuelle) coordonnees[1] = i;
+		}
 	}
-	cout << coordonnees[0] << ", " << coordonnees[1] << endl;
+	else coordonnees[1] = -1.0f;
+
     return coordonnees;
 }
+
 static void draw() {
 	GLfloat lum[4] = {0.0f, 0.0f, 5.0f, 1.0f};
 	glClearColor(0.7f, 0.7f, 0.7f, 1.0f);
@@ -350,6 +456,7 @@ static void draw() {
 }
 
 static void quit(void) {
+	delete Info_Joueurss;
 	gl4duClean(GL4DU_ALL);
 }
 

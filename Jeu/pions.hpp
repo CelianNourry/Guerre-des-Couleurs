@@ -88,7 +88,6 @@ struct Info_Joueurs {
     void GAIN_PASSIF_OR(Pion ***Plateau, Info_Plateau *Info_Plateau);
     void RETIRER_OR(bool tour, int cout);
     int RETURN_OR(bool tour);
-
 };
 
 #endif // PION_HPP
