@@ -12,6 +12,10 @@
 #include <GL4D/gl4dp.h>
 #include <SDL_image.h>
 
+#define X_INITIAL -2.5f
+#define Y_INITIAL 2.5f
+#define TAILLE_CASE 0.25f
+
 /*!\brief opened window width */
 static int _windowWidth = 1024;
 /*!\brief opened window height */
@@ -21,22 +25,28 @@ static GLuint _pId = 0;
 static GLuint _quad = 0;
 int a = 0;
 
+bool Is_Creating_Character = false;
+SDL_Event event;
+
 Pion ***Plateau = nullptr;
+Info_Plateau *Info_Plateaus = nullptr;
 bool initialisationPlateau = true;
 
 GLuint _texId[2] = { 0 };
 /*!\brief enum that index keyboard mapping for direction commands */
 enum kyes_t {
-KLEFT = 0,
-KRIGHT,
-KUP,
-KDOWN,
-KPAGEUP,
-KPAGEDOWN
+	KLEFT = 0,
+	KRIGHT,
+	KUP,
+	KDOWN,
+	KPAGEUP,
+	KPAGEDOWN,
+	K_P,
+	K_CLICK
 };
 
 /*!\brief virtual keyboard for direction commands */
-static GLuint _keys[] = {0, 0, 0, 0, 0, 0};
+static GLuint _keys[] = {0, 0, 0, 0, 0, 0, 0, 0};
 
 typedef struct cam_t cam_t;
 /*!\brief a data structure for storing camera position and
@@ -66,11 +76,12 @@ static void idle(void);
 static void draw(void);
 static void keydown(int keycode);
 static void keyup(int keycode);
+static void jeu(void);
+static float *caseChoisie(int x, int y);
 
 static void init(void) {
 	glCullFace(GL_BACK);
 	glEnable(GL_CULL_FACE);
-	/* on active le test de profondeur */
 	glEnable(GL_DEPTH_TEST);
 
 	_quad = gl4dgGenQuadf();
@@ -118,7 +129,6 @@ int main(int argc, char ** argv) {
 		Pion* Pion1 = &Chateau_Bleu;
 		Chateau Chateau_Rouge{false};
 		Pion* Pion2 = &Chateau_Rouge;
-		Chateau Chateau_Roug{false};
 
 		Pion1 -> SET_POS(9, 19);
 		Plateau[9][19] = Pion1;
@@ -126,9 +136,10 @@ int main(int argc, char ** argv) {
 		Pion2 -> SET_POS(9, 0);
 		Plateau[9][0] = Pion2;
 
-		Plateau[9][0] -> affiche();
+		Info_Plateaus = refresh_plateau(Plateau);
+		cout << Info_Plateaus->Chateaux_0[0].i << endl;
 
-		bool tour = true;
+		Plateau[9][0] -> affiche();
 	}
 
 	initialisationPlateau = false;
@@ -162,6 +173,7 @@ static void idle(void) {
 	float t, dt, dtheta = M_PI, step = 1.0f;
 	dt = ((t = (float)gl4dGetElapsedTime()) - t0) / 1000.0f;
 	t0 = t;
+
 	if(_keys[KLEFT]) _cam.theta += dt * dtheta;
 	if(_keys[KRIGHT]) _cam.theta -= dt * dtheta;
 	if(_keys[KPAGEUP]) _cam.y += dt * 0.5f * step;
@@ -174,7 +186,18 @@ static void idle(void) {
 	_cam.x += dt * step * sin(_cam.theta);
 	_cam.z += dt * step * cos(_cam.theta);
 	}
+	if(_keys[K_P]) Is_Creating_Character = true;
+	if (Is_Creating_Character && SDL_WaitEvent(&event)) {
+		switch (event.type) {
+			case SDL_MOUSEBUTTONDOWN:
+            if (event.button.button == SDL_BUTTON_LEFT) {
+				float *coordonnees = caseChoisie((float)event.button.x, (float)event.button.y);
+				float i = coordonnees[0], j = coordonnees[1]; 
+            }
+		}
+	}
 	if(!_pause) rot[1] += 90.0f * dt;
+	jeu();
 }
 
 static void keydown(int keycode) {
@@ -197,6 +220,9 @@ static void keydown(int keycode) {
 			break;
 		case GL4DK_u:
 			_keys[KPAGEUP] = 1;
+			break;
+		case GL4DK_p:
+			_keys[K_P] = 1;
 			break;
 		case GL4DK_ESCAPE:
 			case 'q':
@@ -243,15 +269,36 @@ static void keyup(int keycode) {
 		case GL4DK_u:
 			_keys[KPAGEUP] = 0;
 			break;
+		case GL4DK_p:
+			_keys[K_P] = 0;
+			break;
 		default:
 			break;
 	}
 }
 
-static void draw() {
-	Info_Plateau *Info_Plateaus = refresh_plateau(Plateau);
+static void jeu(void) {
+	if (Is_Creating_Character){
+		
+	}
+}
 
-	float x_initiale = -2.5f, y_initiale = 2.5f, taille_case = 0.25f;
+//Case choisie par l'évenement de click de souris
+static float *caseChoisie(int x, int y){
+	float x_0 = 245.0f, x_19 = 755.0f;
+	float y_0 = 115.0f, y_19 = 625.0f;
+	static float coordonnees[2];
+	cout << x << ", " << y << endl;
+	for (float i = 0.0f, caseActuelle = 0.0f; (int)i < COLONNE; i ++, caseActuelle += (x_19 - x_0) / COLONNE){
+		if (x > caseActuelle) coordonnees[0] = i;
+	}
+	for (float i = 0.0f, caseActuelle = 0.0f; (int)i < LIGNE; i ++, caseActuelle += (y_19 - y_0) / LIGNE){
+		if (y > caseActuelle) coordonnees[1] = i;
+	}
+	cout << coordonnees[0] << ", " << coordonnees[1] << endl;
+    return coordonnees;
+}
+static void draw() {
 	GLfloat lum[4] = {0.0f, 0.0f, 5.0f, 1.0f};
 	glClearColor(0.7f, 0.7f, 0.7f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -264,9 +311,9 @@ static void draw() {
 
 	gl4duLookAtf(0.0f, 10.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, -1.0f);
 
-	float y = y_initiale;
+	float y = Y_INITIAL;
 	for (int i = 0; i < LIGNE; i++) {
-		float x = x_initiale; // Réinitialisation de x pour chaque ligne
+		float x = X_INITIAL;
 		for (int j = 0; j < COLONNE; j++) {
 			if (Plateau[j][i] != nullptr){
 				glActiveTexture(GL_TEXTURE0);
@@ -275,7 +322,7 @@ static void draw() {
 				glUniform1i(glGetUniformLocation(_pId, "myTexture"), 0);
 
 				//Plateau[j][i] -> affiche();
-				Plateau[j][i] -> RETURN_OWNER() == false
+				Plateau[j][i] -> RETURN_OWNER()
 				? glUniform4f(glGetUniformLocation(_pId, "diffuse_color"), 0.0f, 0.0f, 0.9f, 0.8f)
 				: glUniform4f(glGetUniformLocation(_pId, "diffuse_color"), 0.9f, 0.0f, 0.0f, 0.8f);
 
@@ -289,14 +336,14 @@ static void draw() {
 
 			gl4duLoadIdentityf();
 			gl4duTranslatef(x, y, -10.0f);
-			gl4duScalef(taille_case / 2, taille_case / 2, taille_case / 2);
+			gl4duScalef(TAILLE_CASE / 2, TAILLE_CASE / 2, TAILLE_CASE / 2);
 			gl4duSendMatrices();
 
 			gl4dgDraw(_quad);
 
-			x += taille_case;
+			x += TAILLE_CASE;
 		}
-		y -= taille_case;
+		y -= TAILLE_CASE;
 	}
 
 	glUseProgram(0); // remise du programme à 0 à la fin
