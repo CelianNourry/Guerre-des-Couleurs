@@ -3,19 +3,48 @@
 
 #define OR_INITIAL 500
 
-int Pion::deplacement(const char orientation){
-    if (orientation == 'H')
-        this -> y -= VITS;
-    else if (orientation == 'B')
-        this -> y += VITS;
-    else if (orientation == 'D')
-        this -> x += VITS;
-    else if (orientation == 'G')
-        this -> x -= VITS;
-    else {
-        cout << "Erreur" << endl;
-        return -1;
+int Pion::deplacement(Pion*** Plateau, int MC_POS_X, int MC_POS_Y, int MC_POS_WHERE_X, int MC_POS_WHERE_Y, int *DEPLACEMENTS_RESTANTS){
+    char direction;
+    int nb_case_deplacee = 0;
+    if (MC_POS_WHERE_X != MC_POS_X && MC_POS_WHERE_Y != MC_POS_Y) return -1;
+
+    if (MC_POS_X > MC_POS_WHERE_X) direction = 'G'; //Gauche
+    else if (MC_POS_X < MC_POS_WHERE_X) direction = 'D'; //Droite
+    else if (MC_POS_Y > MC_POS_WHERE_Y) direction = 'B'; //Bas
+    else if (MC_POS_Y < MC_POS_WHERE_Y) direction = 'H'; //Haut
+
+    if (direction == 'G') nb_case_deplacee = (MC_POS_X + 1) - (MC_POS_WHERE_X + 1);
+    else if (direction == 'D') nb_case_deplacee = (MC_POS_WHERE_X + 1) - (MC_POS_X + 1);
+    else if (direction == 'B') nb_case_deplacee = (MC_POS_Y + 1) - (MC_POS_WHERE_Y + 1);
+    else if (direction == 'H') nb_case_deplacee = (MC_POS_WHERE_Y + 1) - (MC_POS_Y + 1);
+
+    //Vérifier si on ne va pas trop loin
+    if (nb_case_deplacee > *DEPLACEMENTS_RESTANTS) return -2;
+
+    //Vérifier s'il y a des autres pions sur le chemin
+    for (int i = nb_case_deplacee; i > 0; i--){
+        int MC_POS_X_TEMP, MC_POS_Y_TEMP;
+        MC_POS_X_TEMP = MC_POS_X, MC_POS_Y_TEMP = MC_POS_Y;
+        if (direction == 'G'){
+            MC_POS_X_TEMP--;
+            if (Plateau[MC_POS_X_TEMP][MC_POS_Y_TEMP] != nullptr) return -3;
+        }
+        else if (direction == 'D'){
+            MC_POS_X_TEMP++;
+            if (Plateau[MC_POS_X_TEMP][MC_POS_Y_TEMP] != nullptr) return -3;
+        }
+        else if (direction == 'B'){
+            MC_POS_Y_TEMP--;
+            if (Plateau[MC_POS_X_TEMP][MC_POS_Y_TEMP] != nullptr) return -3;
+        }
+        else if (direction == 'H'){
+            MC_POS_Y_TEMP++;
+            if (Plateau[MC_POS_X_TEMP][MC_POS_Y_TEMP] != nullptr) return -3;
+        }
     }
+    *DEPLACEMENTS_RESTANTS -= nb_case_deplacee;
+    Plateau[MC_POS_WHERE_X][MC_POS_WHERE_Y] = Plateau[MC_POS_X][MC_POS_Y];
+    Plateau[MC_POS_X][MC_POS_Y] = nullptr;
     return 0;
 }
 
@@ -49,6 +78,9 @@ bool Pion::RETURN_OWNER(){
 int Pion::GET_COUT(){
     return this -> COUT;
 }
+int Pion::GET_VITS(){
+    return this -> VITS;
+}
 
 int Pion::SET_POS(int x, int y){
     if (x >= 0 && x < LIGNE && y >= 0 && y < COLONNE) {
@@ -64,6 +96,7 @@ Chateau::Chateau(bool owner) : Pion(owner) {
     PV = 20;
     PROD = 2;
     COUT = 15;
+    VITS = 0;
 }
 
 int Chateau::creer_personnage(Pion*** Plateau, int pos_x, int pos_y, Info_Joueurs *Info_Joueurs, int type, bool owner) {
@@ -95,6 +128,7 @@ Guerrier::Guerrier(bool owner)
     PV = 10;
     ATK = 5;
     COUT = 10;
+    VITS = 3;
 }
 
 Paysan::Paysan(bool owner)
@@ -103,6 +137,7 @@ Paysan::Paysan(bool owner)
     PV = 1;
     PROD = 5;
     COUT = 20;
+    VITS = 2;
 }
 
 Seigneur::Seigneur(bool owner)
@@ -111,6 +146,7 @@ Seigneur::Seigneur(bool owner)
     PV = 5;
     ATK = 3;
     COUT = 10;
+    VITS = 1;
 }
 
 Info_Plateau::Info_Plateau(void){

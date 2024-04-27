@@ -34,8 +34,11 @@ bool CC_which_character = false;
 bool CC_confirmation = false;
 
 //Le joueur veut déplacer un personnage
+int MC_POS_X, MC_POS_Y,  MC_POS_WHERE_X, MC_POS_WHERE_Y;
+int* DEPLACEMENTS_RESTANTS = new int;
 bool MC_which_one = false;
 bool MC_where = false;
+bool MC_confirmation = false;
 
 bool mouseClickPending = false;
 int mouseX = 0;
@@ -55,14 +58,16 @@ enum kyes_t {
 	KDOWN,
 	KPAGEUP,
 	KPAGEDOWN,
+	K_E,
 	K_C, //Veut créer un personnage depuis un château
 	K_G, //Guerrier
 	K_S, //Seigneur
-	K_P //Paysans
+	K_P, //Paysan
+	K_M //Déplacement personnage
 };
 
 /*!\brief virtual keyboard for direction commands */
-static GLuint _keys[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+static GLuint _keys[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
 typedef struct cam_t cam_t;
 /*!\brief a data structure for storing camera position and
@@ -144,6 +149,8 @@ int main(int argc, char ** argv) {
 
 		Chateau Chateau_Bleu{true};
 		Pion* Pion1 = &Chateau_Bleu;
+		Paysan Paysans{true};
+		Pion* Pion_P = &Paysans;
 		Chateau Chateau_Rouge{false};
 		Pion* Pion2 = &Chateau_Rouge;
 
@@ -152,6 +159,9 @@ int main(int argc, char ** argv) {
 
 		Pion2 -> SET_POS(9, 0);
 		Plateau[9][0] = Pion2;
+
+		Pion_P -> SET_POS(9, 9);
+		Plateau[9][9] = Pion_P;
 
 		Info_Plateaus = refresh_plateau(Plateau);
 		cout << Info_Plateaus->Chateaux_0[0].i << endl;
@@ -202,11 +212,34 @@ void handleMouseEvents() {
 
 					if ((int)coordonnees[0] != -1 && (int)coordonnees[1] != -1){
 						i = (int)coordonnees[0], j = (int)coordonnees[1];
-						if (Plateau[i][j] == nullptr || Plateau[i][j] -> type() != 'C' || Plateau[i][j] -> RETURN_OWNER() != tour) cout << "Veillez choisir un château qui vous appartient" << endl;
-						else if (Plateau[i][j] -> type() == 'C'){
-							CC_POS_X = i, CC_POS_Y = j;
-							CC_which_character = true; //Input valide, on passe au choix du personnage à créer
-							CC_which_one = false;
+						if (CC_which_one){
+							if (Plateau[i][j] == nullptr || Plateau[i][j] -> type() != 'C' || Plateau[i][j] -> RETURN_OWNER() != tour) cout << "Veillez choisir un château qui vous appartient" << endl;
+							else if (Plateau[i][j] -> type() == 'C'){
+								CC_POS_X = i, CC_POS_Y = j;
+								CC_which_character = true; //Input valide, on passe au choix du personnage à créer
+								CC_which_one = false;
+							}
+						}
+						else if (MC_which_one){
+							if (Plateau[i][j] == nullptr || Plateau[i][j] -> type() == 'C' || Plateau[i][j] -> RETURN_OWNER() != tour) cout << "Veillez choisir un personnage à vous." << endl;
+							else{
+								cout << "Emplacement personnage reçu" << endl;
+								*DEPLACEMENTS_RESTANTS = Plateau[i][j] -> GET_VITS(); // On stocke de combien de case le pion peut nse déplacer
+								cout << *DEPLACEMENTS_RESTANTS << endl;
+								cout << Plateau[i][j] -> GET_VITS() << endl;
+								MC_POS_X = i, MC_POS_Y = j;
+								MC_where = true;
+								MC_which_one = false;
+							}
+						}
+						else if (MC_where){
+							if (Plateau[i][j] != nullptr) cout << "Veillez choisir un emplacement vide." << endl;
+							else{
+								cout << "Enplacement personnage reçu" << endl;
+								MC_POS_WHERE_X = i, MC_POS_WHERE_Y = j;
+								MC_confirmation = true;
+								MC_where = false;
+							}
 						}
             		}
                 }
@@ -221,6 +254,11 @@ static void idle(void) {
 	dt = ((t = (float)gl4dGetElapsedTime()) - t0) / 1000.0f;
 	t0 = t;
 
+	if (_keys[K_E] && !CC_which_one && !CC_which_character && !CC_confirmation && !MC_which_one && !MC_where && !MC_confirmation){
+		tour = !tour;
+		cout << "Au tour de " << (tour ? "du joueur" : "de l'adversaire") << endl;
+		_keys[K_E] = 0;
+	}
 	if(_keys[KLEFT]) _cam.theta += dt * dtheta;
 	if(_keys[KRIGHT]) _cam.theta -= dt * dtheta;
 	if(_keys[KPAGEUP]) _cam.y += dt * 0.5f * step;
@@ -268,14 +306,38 @@ static void idle(void) {
 
     	int resultat = nouveauChateau.creer_personnage(Plateau, CC_POS_X, CC_POS_Y, &Info_Joueurss, CC_TYPE, tour);
 		if (resultat == 0){
-			tour = !tour;
+			Info_Plateaus = refresh_plateau(Plateau);
 		}
 		else{
 			if (resultat == -1) cout << "Mauvais imput" << endl;
 			else if (resultat == -2) cout << "Pas assez d'or" << endl;
-			if (resultat == -1) cout << "Pas de place autour du château" << endl;
+			else if (resultat == -3) cout << "Pas de place autour du château" << endl;
 		}
 		CC_confirmation = false;
+	}
+
+	if(_keys[K_M]){
+		MC_which_one = true;
+		_keys[K_M] = 0; // A mettre absolument
+	}
+
+	if (MC_which_one){
+		handleMouseEvents();
+	}
+	if (MC_where){
+		//cout << "Emplacement personnage reçu" << endl;
+		//cout << DEPLACEMENTS_RESTANTS << endl;
+		if (*DEPLACEMENTS_RESTANTS > 0) handleMouseEvents();
+		else MC_confirmation = false;
+	}
+	if (MC_confirmation){
+		
+		int resultat = Plateau[MC_POS_X][MC_POS_Y] -> deplacement(Plateau, MC_POS_X, MC_POS_Y, MC_POS_WHERE_X, MC_POS_WHERE_Y, DEPLACEMENTS_RESTANTS);
+		if (resultat == -1) cout << "Impossible de naviguer en diagonale avec ce pion" << endl;
+		else if (resultat == -2) cout << "Vous ne pas vous déplacer aussi loin" << endl;
+		else if (resultat == -3) cout << "Il y a quelque chose qui vous barre la route" << endl;
+		MC_confirmation = false;
+	
 	}
 	if(!_pause) rot[1] += 90.0f * dt;
 	jeu();
@@ -302,6 +364,9 @@ static void keydown(int keycode) {
 		case GL4DK_u:
 			_keys[KPAGEUP] = 1;
 			break;
+		case GL4DK_e:
+			_keys[K_E] = 1;
+			break;
 		case GL4DK_c:
 			_keys[K_C] = 1;
 			break;
@@ -313,6 +378,9 @@ static void keydown(int keycode) {
 			break;
 		case GL4DK_s:
 			_keys[K_S] = 1;
+			break;
+		case GL4DK_m:
+			_keys[K_M] = 1;
 			break;
 		case GL4DK_ESCAPE:
 			case 'q':
@@ -361,6 +429,9 @@ static void keyup(int keycode) {
 		case GL4DK_u:
 			_keys[KPAGEUP] = 0;
 			break;
+		case GL4DK_e:
+			_keys[K_E] = 0;
+			break;
 		case GL4DK_c:
 			_keys[K_C] = 0;
 			break;
@@ -372,6 +443,9 @@ static void keyup(int keycode) {
 			break;
 		case GL4DK_s:
 			_keys[K_S] = 0;
+			break;
+		case GL4DK_m:
+			_keys[K_M] = 0;
 			break;
 		default:
 			break;
@@ -456,7 +530,6 @@ static void draw() {
 }
 
 static void quit(void) {
-	delete Info_Joueurss;
 	gl4duClean(GL4DU_ALL);
 }
 

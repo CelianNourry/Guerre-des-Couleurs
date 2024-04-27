@@ -25,13 +25,14 @@ protected:
 public:
     Pion(bool owner)
         : owned(owner) {}
-    int deplacement(const char orientation);
+    int deplacement(Pion*** Plateau, int MC_POS_X, int MC_POS_Y, int MC_POS_WHERE_X, int MC_POS_WHERE_Y, int *DEPLACEMENTS_RESTANTS);
     void affiche();
     char type(void);
     int production(void);
     //Retourne à qui appartient le pion
     bool RETURN_OWNER(void);
     int GET_COUT(void);
+    int GET_VITS(void);
     int SET_POS(int x, int y);
 };
 
