@@ -32,6 +32,7 @@ int CC_POS_X, CC_POS_Y, CC_TYPE;
 bool CC_which_one = false;
 bool CC_which_character = false;
 bool CC_confirmation = false;
+bool did_CC_confirmation = false; //Savoir si on a déjà créer un chateau durant le tour
 
 //Le joueur veut déplacer un personnage
 int MC_POS_X, MC_POS_Y,  MC_POS_WHERE_X, MC_POS_WHERE_Y;
@@ -39,6 +40,7 @@ int* DEPLACEMENTS_RESTANTS = new int;
 bool MC_which_one = false;
 bool MC_where = false;
 bool MC_confirmation = false;
+bool did_MC_confirmation = false;
 
 bool mouseClickPending = false;
 int mouseX = 0;
@@ -224,9 +226,6 @@ void handleMouseEvents() {
 							if (Plateau[i][j] == nullptr || Plateau[i][j] -> type() == 'C' || Plateau[i][j] -> RETURN_OWNER() != tour) cout << "Veillez choisir un personnage à vous." << endl;
 							else{
 								cout << "Emplacement personnage reçu" << endl;
-								*DEPLACEMENTS_RESTANTS = Plateau[i][j] -> GET_VITS(); // On stocke de combien de case le pion peut nse déplacer
-								cout << *DEPLACEMENTS_RESTANTS << endl;
-								cout << Plateau[i][j] -> GET_VITS() << endl;
 								MC_POS_X = i, MC_POS_Y = j;
 								MC_where = true;
 								MC_which_one = false;
@@ -255,6 +254,8 @@ static void idle(void) {
 	t0 = t;
 
 	if (_keys[K_E] && !CC_which_one && !CC_which_character && !CC_confirmation && !MC_which_one && !MC_where && !MC_confirmation){
+		did_CC_confirmation = false;
+		did_MC_confirmation = false;
 		tour = !tour;
 		cout << "Au tour de " << (tour ? "du joueur" : "de l'adversaire") << endl;
 		_keys[K_E] = 0;
@@ -274,8 +275,11 @@ static void idle(void) {
 
 	//Création de personnages via châteaux
 	if(_keys[K_C]){
-		CC_which_one = true;
-		_keys[K_C] = 0; // A mettre absolument
+		if (!did_CC_confirmation){
+			CC_which_one = true;
+			_keys[K_C] = 0; // A mettre absolument
+		}
+		else cout << "Vous avez déjà placé un personnage durant ce tour, veillez le terminer" << endl;
 	}
 
 	if (CC_which_one == true){
@@ -314,9 +318,10 @@ static void idle(void) {
 			else if (resultat == -3) cout << "Pas de place autour du château" << endl;
 		}
 		CC_confirmation = false;
+		did_CC_confirmation = true;
 	}
 
-	if(_keys[K_M]){
+	if(_keys[K_M]){ //Déplacement
 		MC_which_one = true;
 		_keys[K_M] = 0; // A mettre absolument
 	}
@@ -325,13 +330,19 @@ static void idle(void) {
 		handleMouseEvents();
 	}
 	if (MC_where){
-		//cout << "Emplacement personnage reçu" << endl;
-		//cout << DEPLACEMENTS_RESTANTS << endl;
-		if (*DEPLACEMENTS_RESTANTS > 0) handleMouseEvents();
-		else MC_confirmation = false;
+		if (!did_MC_confirmation) *DEPLACEMENTS_RESTANTS = Plateau[MC_POS_X][MC_POS_Y] -> GET_VITS(); // On stocke de combien de case le pion peut nse déplacer
+		if (*DEPLACEMENTS_RESTANTS > 0){
+			//cout << "Emplacement personnage reçu" << endl;
+			//cout << *DEPLACEMENTS_RESTANTS << endl;
+			did_MC_confirmation = true;
+			handleMouseEvents();
+		}
+		else{
+			cout << "Vous ne pouvez pas aller plus loin ce tour" << endl;
+			MC_where = false;
+		}
 	}
-	if (MC_confirmation){
-		
+	if (MC_confirmation){	
 		int resultat = Plateau[MC_POS_X][MC_POS_Y] -> deplacement(Plateau, MC_POS_X, MC_POS_Y, MC_POS_WHERE_X, MC_POS_WHERE_Y, DEPLACEMENTS_RESTANTS);
 		if (resultat == -1) cout << "Impossible de naviguer en diagonale avec ce pion" << endl;
 		else if (resultat == -2) cout << "Vous ne pas vous déplacer aussi loin" << endl;
