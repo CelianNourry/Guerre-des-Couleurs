@@ -59,6 +59,7 @@ public:
 class Seigneur : public Pion {
 public:
     Seigneur(bool owner);
+    int transformation(bool tour, Info_Joueurs *Info_Joueurs, Pion*** Plateau, int T_POS_X, int T_POS_Y);
 };
 
 struct Info_Pion {

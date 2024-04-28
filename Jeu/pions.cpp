@@ -171,6 +171,22 @@ Seigneur::Seigneur(bool owner)
     VITS = 1;
 }
 
+int Seigneur::transformation(bool tour, Info_Joueurs *Info_Joueurs, Pion*** Plateau, int T_POS_X, int T_POS_Y){
+    //On créer un nouveau château à la position du Seigneur si le joueur a assez d'or
+    if ((Info_Joueurs -> RETURN_OR(tour) - 20) > 0){
+        Chateau* Chateau_Temp = new Chateau(tour);
+        if (Chateau_Temp == nullptr) return -2;
+
+        Plateau[T_POS_X][T_POS_Y] = Chateau_Temp;
+        Info_Joueurs -> RETIRER_OR(tour, 20);
+
+        return 0;
+    }
+    else {
+        return -1; // Pas assez d'or pour la transformation
+    }
+}
+
 Info_Plateau::Info_Plateau(void){
     Chateaux_0 = new Info_Pion[COLONNE * LIGNE];
     Guerriers_0 = new Info_Pion[COLONNE * LIGNE];
@@ -210,7 +226,7 @@ void Info_Joueurs::GAIN_PASSIF_OR(Pion ***Plateau, Info_Plateau *Info_Plateau){
 }
 
 void Info_Joueurs::RETIRER_OR(bool tour, int cout){
-    tour == 1 ? OR_JOUEUR_0 -= cout : OR_JOUEUR_1 -= cout;
+    tour == true ? OR_JOUEUR_0 -= cout : OR_JOUEUR_1 -= cout;
 }
 
 int Info_Joueurs::RETURN_OR(bool tour){

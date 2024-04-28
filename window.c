@@ -23,7 +23,7 @@ static int _windowHeight = 768;
 /*!\brief GLSL program Id */
 static GLuint _pId = 0;
 static GLuint _quad = 0;
-int a = 0;
+int NB_TOUR = 1;
 
 
 bool tour = true;
@@ -48,6 +48,12 @@ bool ATK_which_one = false;
 bool ATK_where = false;
 bool ATK_confirmation = false;
 bool did_ATK_confirmation = false;
+
+//Transformations de Seigneur à Château
+int T_POS_X, T_POS_Y;
+bool T_which_one = false;
+bool T_confirmation = false;
+bool did_T_confirmation = false;
 
 bool mouseClickPending = false;
 int mouseX = 0;
@@ -167,6 +173,8 @@ int main(int argc, char ** argv) {
 
 		Guerrier Guerriers{false};
 		Pion* Pion_G = &Guerriers;
+		Seigneur Seigneurs{true};
+		Pion* Pion_S = &Seigneurs;
 
 		Pion1 -> SET_POS(9, 19);
 		Plateau[9][19] = Pion1;
@@ -179,6 +187,9 @@ int main(int argc, char ** argv) {
 
 		Pion_G -> SET_POS(9, 10);
 		Plateau[9][10] = Pion_G;
+
+		Pion_S -> SET_POS(0, 0);
+		Plateau[0][0] = Pion_S;
 
 		Info_Plateaus = refresh_plateau(Plateau);
 		cout << Info_Plateaus->Chateaux_0[0].i << endl;
@@ -237,7 +248,7 @@ void handleMouseEvents() {
 								CC_which_one = false;
 							}
 						}
-						else if (MC_which_one || ATK_which_one){
+						else if (MC_which_one || ATK_which_one || T_which_one){
 							if (Plateau[i][j] == nullptr || Plateau[i][j] -> type() == 'C' || Plateau[i][j] -> RETURN_OWNER() != tour) cout << "Veillez choisir un personnage à vous." << endl;
 							else{
 								if (MC_which_one){
@@ -256,6 +267,16 @@ void handleMouseEvents() {
 										cout << "Veuillez choisir qui attaquera le pion" << endl;
 									}
 									else cout << "Les paysans ne peuvent pas attaquer" << endl;
+								}
+								else if(T_which_one){
+									if (Plateau[i][j] == nullptr) cout << "Veuillez choisir un pion" << endl;
+									else if (Plateau[i][j] -> type() != 'S') cout << "Veuillez choisir un Seigneur" << endl;
+									else if (Plateau[i][j] -> RETURN_OWNER() != tour) cout << "Veuillez choisir un pion qui vous appartient" << endl;
+									else{
+										T_POS_X = i, T_POS_Y = j;
+										T_confirmation = true;
+										T_which_one = false;
+									}
 								}
 							}
 						}
@@ -296,11 +317,14 @@ void handleMouseEvents() {
 							}
 						}
             		}
+					else{
+						cout << "Veuillez choisir des coordonées sur le plateau" << endl;
+					}
                 }
                 break;
-        }
-    }
-}
+    		}
+    	}
+	}
 static void idle(void) {
 	int i, j;
 	static float t0 = 0.0f;
@@ -309,12 +333,17 @@ static void idle(void) {
 	t0 = t;
 
 	if (_keys[K_E] && !CC_which_one && !CC_which_character && !CC_confirmation && !MC_which_one && !MC_where && !MC_confirmation){
+		clear_terminal();
 		Info_Plateaus = refresh_plateau(Plateau);
+		Info_Joueurss.GAIN_PASSIF_OR(Plateau, Info_Plateaus);
+		int or_joueur = Info_Joueurss.RETURN_OR(true), or_adversaire = Info_Joueurss.RETURN_OR(false);
+
 		did_CC_confirmation = false;
 		did_MC_confirmation = false;
 		did_ATK_confirmation = false;
+		did_T_confirmation = false;
 		tour = !tour;
-		cout << "Au tour de " << (tour ? "du joueur" : "de l'adversaire") << endl;
+		cout << "Au tour de " << (tour ? "\x1b[34;1mdu joueur" : "\x1b[31;1mde l'adversaire") << endl << "\033[0mOr Joueur : " << or_joueur << endl << "Or Adversaire : " << or_adversaire << endl;
 		_keys[K_E] = 0;
 	}
 	if(_keys[KLEFT]) _cam.theta += dt * dtheta;
@@ -361,6 +390,7 @@ static void idle(void) {
 	//Création de personnages via châteaux
 	if(_keys[K_C]){
 		if (!did_CC_confirmation){
+			cout << "Choisissez un Château" << endl;
 			CC_which_one = true;
 			_keys[K_C] = 0; // A mettre absolument
 		}
@@ -405,6 +435,7 @@ static void idle(void) {
 	}
 
 	if(_keys[K_M] && !did_CC_confirmation && !did_ATK_confirmation){ //Déplacement
+		cout << "Choisissez un Pion à déplacer" << endl;
 		MC_which_one = true;
 		_keys[K_M] = 0; // A mettre absolument
 	}
@@ -433,10 +464,28 @@ static void idle(void) {
 		MC_confirmation = false;
 	
 	}
-
 	if (_keys[K_T]){
-		cout << "Veuillez choisir un Seigneur qui se transformera en Château" << endl;
+		if (!did_T_confirmation){
+			cout << "Choisissez un Seigneur à transformer" << endl;
+			T_which_one = true;
+			_keys[K_T] = 0; // A mettre absolument
+		}
+		else{
+			cout << "Vous avez déjà transformé un Seigneur en Château durant ce tour" << endl;
+		}
+
 	}
+	if (T_which_one){
+		handleMouseEvents();
+	}
+	if (T_confirmation){
+		Seigneur SeigneurTemp(tour);
+		int resultat = SeigneurTemp.transformation(tour, &Info_Joueurss, Plateau, T_POS_X, T_POS_Y);
+		if (resultat == 0) cout << "Le Seigneur s'est bien transformé en Château" << endl;
+		else if (resultat == -1) cout << "Vous n'avez pas assez d'or" << endl;
+		T_confirmation = false;
+	}
+
 	if(!_pause) rot[1] += 90.0f * dt;
 	jeu();
 }

@@ -1,13 +1,17 @@
 #include "pions.cpp"
 #include <string.h>
 #include <unistd.h>
-#include <limits>
 
-void cin_clear(){
-  cin.clear();
-  cin.ignore(numeric_limits<streamsize>::max(), '\n');
+void clear_terminal(){
+  #ifdef __unix__
+     std::system("clear");
+  #elif _WIN32
+  std::system("cls");
+  #elif defined(__APPLE__)
+    std::system("cls");
+  #endif
+
 }
-
 Info_Plateau *refresh_plateau(Pion ***Plateau){
 
   Info_Plateau *Info_Plateaus = new Info_Plateau[sizeof(Info_Plateau)];
@@ -47,53 +51,4 @@ Info_Plateau *refresh_plateau(Pion ***Plateau){
     }
   }
   return Info_Plateaus;
-}
-
-void affichage_debut_jeu(Pion ***Plateau, Info_Plateau *Info_Plateaus, Info_Joueurs *Info_Joueurss, bool tour){
-  Info_Plateaus = refresh_plateau(Plateau);
-
-  cout << "Or joueur : " << Info_Joueurss -> RETURN_OR(true) << endl;
-  cout << "Or adversaire : " << Info_Joueurss -> RETURN_OR(false) << endl << endl;
-  cout << (
-        tour
-        ? "\x1b[34;1mC'est au tour du joueur"
-        : "\x1b[31;1mC'est au tour de l'adversaire"
-        ) << "\033[0m" << endl;
-  cout << "Vous pouvez : " << endl << "1 - Ajouter un membre à l'équipe" << endl << "2 - Ne rien faire" << endl;
-
-  sleep(1);
-  cout << "Que voulez vous faire ?" << endl;
-}
-
-void choix_creer_personnage(Pion ***Plateau, Info_Plateau *Info_Plateau, Info_Joueurs *Info_Joueurs, bool tour){
-  int choix_chateau, choix_type, i, resultat_creer_personnage, resultat_creer_personnage_f;
-  cout << "Avec quel chateau ?" << endl;
-  if (tour) for (i = 1;  Info_Plateau->Chateaux_0[i - 1].i != -1; i++) cout << i << " : Chateau en X = " << Info_Plateau->Chateaux_0[i - 1].i <<", Y = " << Info_Plateau->Chateaux_0[i - 1].j << endl;
-  else for (i = 1;  Info_Plateau->Chateaux_1[i - 1].i != -1; i++) cout << i << " : Chateau en X = " << Info_Plateau->Chateaux_1[i - 1].i <<", Y = " << Info_Plateau->Chateaux_1[i - 1].j << endl;
-
-  cin_clear();
-
-  if ((cin >> choix_chateau)) {
-    if (choix_chateau <= 0 || choix_chateau > i - 1) resultat_creer_personnage = -1;
-  }
-  else resultat_creer_personnage =  -1;
-
-  cin_clear();
-  cout << "Quel pion voulez-vous créer ?" << endl << "1 - Guerrier" << endl << "2 - Paysan" << endl << "3 - Seigneur" << endl;
-  if ((cin >> choix_type)) {
-    if (choix_type <= 0 || choix_type > 3) resultat_creer_personnage = -1;
-  }
-  else resultat_creer_personnage = -1;
-
-  Chateau Chateau_Temp{tour};
-  if (tour) resultat_creer_personnage_f = Chateau_Temp.creer_personnage(Plateau, Info_Plateau->Chateaux_0[choix_chateau - 1].i, Info_Plateau->Chateaux_0[choix_chateau - 1].j, Info_Joueurs, choix_type, tour);
-  else resultat_creer_personnage_f = Chateau_Temp.creer_personnage(Plateau, Info_Plateau->Chateaux_1[choix_chateau - 1].i, Info_Plateau->Chateaux_1[choix_chateau - 1].j, Info_Joueurs, choix_type, tour);
-  
-  if (resultat_creer_personnage > 0 || resultat_creer_personnage_f > 0){
-    if (resultat_creer_personnage_f == -1 || resultat_creer_personnage == -1) cout << "Veillez choisir une option valide" << endl; 
-    if (resultat_creer_personnage_f == -2) cout << "Vous n'avez pas assez d'or pour acheter ce pion" << endl;
-    if (resultat_creer_personnage_f == -3) cout << "Il n'a a plus de place autour de ce château" << endl;
-    sleep(1);
-    affichage_debut_jeu(Plateau, Info_Plateau, Info_Joueurs, tour);
-  }
 }
