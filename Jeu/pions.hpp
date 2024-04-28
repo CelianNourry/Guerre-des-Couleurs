@@ -26,6 +26,7 @@ public:
     Pion(bool owner)
         : owned(owner) {}
     int deplacement(Pion*** Plateau, int MC_POS_X, int MC_POS_Y, int MC_POS_WHERE_X, int MC_POS_WHERE_Y, int *DEPLACEMENTS_RESTANTS);
+    int attaque(Pion*** Plateau, int ATK_POS_X, int ATK_POS_Y, int MC_POS_WHERE_X, int MC_POS_WHERE_Y);
     void affiche();
     char type(void);
     int production(void);
@@ -33,6 +34,9 @@ public:
     bool RETURN_OWNER(void);
     int GET_COUT(void);
     int GET_VITS(void);
+    int GET_ATK(void);
+    int GET_PV(void);
+    int REMOVE_PV(int dmg);
     int SET_POS(int x, int y);
 };
 

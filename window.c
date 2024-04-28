@@ -42,6 +42,13 @@ bool MC_where = false;
 bool MC_confirmation = false;
 bool did_MC_confirmation = false;
 
+//Attaque d'autre pions
+int ATK_POS_X, ATK_POS_Y, ATK_POS_WHERE_X, ATK_POS_WHERE_Y;
+bool ATK_which_one = false;
+bool ATK_where = false;
+bool ATK_confirmation = false;
+bool did_ATK_confirmation = false;
+
 bool mouseClickPending = false;
 int mouseX = 0;
 int mouseY = 0;
@@ -65,11 +72,13 @@ enum kyes_t {
 	K_G, //Guerrier
 	K_S, //Seigneur
 	K_P, //Paysan
-	K_M //Déplacement personnage
+	K_M, //Déplacement personnage
+	K_A, //Attaque
+	K_T //Transformation du paysan en chateau
 };
 
 /*!\brief virtual keyboard for direction commands */
-static GLuint _keys[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+static GLuint _keys[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
 typedef struct cam_t cam_t;
 /*!\brief a data structure for storing camera position and
@@ -156,6 +165,9 @@ int main(int argc, char ** argv) {
 		Chateau Chateau_Rouge{false};
 		Pion* Pion2 = &Chateau_Rouge;
 
+		Guerrier Guerriers{false};
+		Pion* Pion_G = &Guerriers;
+
 		Pion1 -> SET_POS(9, 19);
 		Plateau[9][19] = Pion1;
 
@@ -164,6 +176,9 @@ int main(int argc, char ** argv) {
 
 		Pion_P -> SET_POS(9, 9);
 		Plateau[9][9] = Pion_P;
+
+		Pion_G -> SET_POS(9, 10);
+		Plateau[9][10] = Pion_G;
 
 		Info_Plateaus = refresh_plateau(Plateau);
 		cout << Info_Plateaus->Chateaux_0[0].i << endl;
@@ -222,13 +237,26 @@ void handleMouseEvents() {
 								CC_which_one = false;
 							}
 						}
-						else if (MC_which_one){
+						else if (MC_which_one || ATK_which_one){
 							if (Plateau[i][j] == nullptr || Plateau[i][j] -> type() == 'C' || Plateau[i][j] -> RETURN_OWNER() != tour) cout << "Veillez choisir un personnage à vous." << endl;
 							else{
-								cout << "Emplacement personnage reçu" << endl;
-								MC_POS_X = i, MC_POS_Y = j;
-								MC_where = true;
-								MC_which_one = false;
+								if (MC_which_one){
+									MC_POS_X = i, MC_POS_Y = j;
+									MC_where = true;
+									MC_which_one = false;
+									cout << "La position du pion à bouger a été enregistrée" << endl;
+									cout << "Veuillez choisir où ira le pion" << endl;
+								}
+								else if (ATK_which_one){
+									if (Plateau[i][j] -> type() != 'P'){
+										ATK_POS_X = i, ATK_POS_Y = j;
+										ATK_where = true;
+										ATK_which_one = false;
+										cout << "La position du pion qui attaque a été enregistrée" << endl;
+										cout << "Veuillez choisir qui attaquera le pion" << endl;
+									}
+									else cout << "Les paysans ne peuvent pas attaquer" << endl;
+								}
 							}
 						}
 						else if (MC_where){
@@ -238,6 +266,33 @@ void handleMouseEvents() {
 								MC_POS_WHERE_X = i, MC_POS_WHERE_Y = j;
 								MC_confirmation = true;
 								MC_where = false;
+							}
+						}
+						else if (ATK_where){
+							int nb_case_deplacee = 0;
+							char direction;
+							if (ATK_POS_X > i) direction = 'G'; //Gauche
+							else if (ATK_POS_X < i) direction = 'D'; //Droite
+							else if (ATK_POS_Y > j) direction = 'B'; //Bas
+							else if (ATK_POS_Y < j) direction = 'H'; //Haut
+
+							if (direction == 'G') nb_case_deplacee = (ATK_POS_X + 1) - (i + 1);
+							else if (direction == 'D') nb_case_deplacee = (i + 1) - (ATK_POS_X + 1);
+							else if (direction == 'B') nb_case_deplacee = (ATK_POS_Y + 1) - (j + 1);
+							else if (direction == 'H') nb_case_deplacee = (j + 1) - (ATK_POS_Y + 1);
+
+							//Vérifier si on ne va pas trop loin
+							if (nb_case_deplacee > 1) cout << "Vous devez attaquer un pion devant vous" << endl;
+
+							else if (i != ATK_POS_X && j != ATK_POS_Y) cout << "Vous ne pouvez pas attaquer en diagonale" << endl;
+							else if (Plateau[i][j] == nullptr) cout << "Veuillez attaquer un pion" << endl;
+							else if (Plateau[i][j] -> RETURN_OWNER() == tour) cout << "Le friendly fire n'est pas activé" << endl;
+
+							else{
+								cout << "Enplacement personnage reçu" << endl;
+								ATK_POS_WHERE_X = i, ATK_POS_WHERE_Y = j;
+								ATK_confirmation = true;
+								ATK_where = false;
 							}
 						}
             		}
@@ -254,8 +309,10 @@ static void idle(void) {
 	t0 = t;
 
 	if (_keys[K_E] && !CC_which_one && !CC_which_character && !CC_confirmation && !MC_which_one && !MC_where && !MC_confirmation){
+		Info_Plateaus = refresh_plateau(Plateau);
 		did_CC_confirmation = false;
 		did_MC_confirmation = false;
+		did_ATK_confirmation = false;
 		tour = !tour;
 		cout << "Au tour de " << (tour ? "du joueur" : "de l'adversaire") << endl;
 		_keys[K_E] = 0;
@@ -273,13 +330,43 @@ static void idle(void) {
 	_cam.z += dt * step * cos(_cam.theta);
 	}
 
+	if(_keys[K_A]){
+		if (did_ATK_confirmation){
+			cout << "Vous avez déjà attaqué ce tour" << endl;
+		}
+		else if (did_CC_confirmation){
+			cout << "Vous ne pouvez pas attaqué après avoir construit un château" << endl;
+		}
+		else {
+			ATK_which_one = true;
+			_keys[K_A] = 0; // A mettre absolument
+		}
+	}
+
+	if (ATK_which_one){
+		handleMouseEvents();
+	}
+	if (ATK_where){
+		handleMouseEvents();
+		did_ATK_confirmation = true;
+	}
+	if (ATK_confirmation){
+		int resultat = Plateau[ATK_POS_X][ATK_POS_Y] -> attaque(Plateau, ATK_POS_X, ATK_POS_Y, ATK_POS_WHERE_X, ATK_POS_WHERE_Y);
+		int vie_adversiare = Plateau[ATK_POS_WHERE_X][ATK_POS_WHERE_Y] -> GET_PV();
+		int dmg_pion = Plateau[ATK_POS_X][ATK_POS_Y] -> GET_ATK();
+		if (resultat == 1) cout << "Vous avez tué le pion" << endl;
+		else if (resultat == 0) cout << "Vous avez enlevé " << dmg_pion << "PV au pion, il lui reste " << vie_adversiare << "PV" << endl;
+		ATK_confirmation = false;
+	}
 	//Création de personnages via châteaux
 	if(_keys[K_C]){
 		if (!did_CC_confirmation){
 			CC_which_one = true;
 			_keys[K_C] = 0; // A mettre absolument
 		}
-		else cout << "Vous avez déjà placé un personnage durant ce tour, veillez le terminer" << endl;
+		else {
+			cout << "Vous avez déjà placé un personnage durant ce tour, veillez le terminer" << endl;
+		}
 	}
 
 	if (CC_which_one == true){
@@ -309,19 +396,15 @@ static void idle(void) {
 		Chateau nouveauChateau(tour);
 
     	int resultat = nouveauChateau.creer_personnage(Plateau, CC_POS_X, CC_POS_Y, &Info_Joueurss, CC_TYPE, tour);
-		if (resultat == 0){
-			Info_Plateaus = refresh_plateau(Plateau);
-		}
-		else{
-			if (resultat == -1) cout << "Mauvais imput" << endl;
-			else if (resultat == -2) cout << "Pas assez d'or" << endl;
-			else if (resultat == -3) cout << "Pas de place autour du château" << endl;
-		}
+		if (resultat == -1) cout << "Mauvais imput" << endl;
+		else if (resultat == -2) cout << "Pas assez d'or" << endl;
+		else if (resultat == -3) cout << "Pas de place autour du château" << endl;
+		else cout << "Le châyeau a bien été créé" << endl;
 		CC_confirmation = false;
 		did_CC_confirmation = true;
 	}
 
-	if(_keys[K_M]){ //Déplacement
+	if(_keys[K_M] && !did_CC_confirmation && !did_ATK_confirmation){ //Déplacement
 		MC_which_one = true;
 		_keys[K_M] = 0; // A mettre absolument
 	}
@@ -349,6 +432,10 @@ static void idle(void) {
 		else if (resultat == -3) cout << "Il y a quelque chose qui vous barre la route" << endl;
 		MC_confirmation = false;
 	
+	}
+
+	if (_keys[K_T]){
+		cout << "Veuillez choisir un Seigneur qui se transformera en Château" << endl;
 	}
 	if(!_pause) rot[1] += 90.0f * dt;
 	jeu();
@@ -392,6 +479,12 @@ static void keydown(int keycode) {
 			break;
 		case GL4DK_m:
 			_keys[K_M] = 1;
+			break;
+		case GL4DK_a:
+			_keys[K_A] = 1;
+			break;
+		case GL4DK_t:
+			_keys[K_T] = 1;
 			break;
 		case GL4DK_ESCAPE:
 			case 'q':
@@ -457,6 +550,12 @@ static void keyup(int keycode) {
 			break;
 		case GL4DK_m:
 			_keys[K_M] = 0;
+			break;
+		case GL4DK_a:
+			_keys[K_A] = 0;
+			break;
+		case GL4DK_t:
+			_keys[K_T] = 0;
 			break;
 		default:
 			break;

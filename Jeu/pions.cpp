@@ -48,6 +48,17 @@ int Pion::deplacement(Pion*** Plateau, int MC_POS_X, int MC_POS_Y, int MC_POS_WH
     return 0;
 }
 
+int Pion::attaque(Pion*** Plateau, int ATK_POS_X, int ATK_POS_Y, int ATK_POS_WHERE_X, int ATK_POS_WHERE_Y){
+    if (Plateau[ATK_POS_WHERE_X][ATK_POS_WHERE_Y] -> GET_PV() - Plateau[ATK_POS_X][ATK_POS_Y] -> GET_ATK() < 1){
+        Plateau[ATK_POS_WHERE_X][ATK_POS_WHERE_Y] = nullptr;
+        return 1;
+    }
+    else {
+        Plateau[ATK_POS_WHERE_X][ATK_POS_WHERE_Y] -> REMOVE_PV(Plateau[ATK_POS_X][ATK_POS_Y] -> GET_ATK());
+        return 0;
+    }
+}
+
 void Pion::affiche(){
     cout << "(" << x << ", " << y << ")" << endl;
     cout << owned << endl;
@@ -80,6 +91,17 @@ int Pion::GET_COUT(){
 }
 int Pion::GET_VITS(){
     return this -> VITS;
+}
+int Pion::GET_ATK(){
+    return this -> ATK;
+}
+int Pion::GET_PV(){
+    return this -> PV;
+}
+
+int Pion::REMOVE_PV(int dmg){
+    this -> PV -= dmg;
+    return 0;
 }
 
 int Pion::SET_POS(int x, int y){
