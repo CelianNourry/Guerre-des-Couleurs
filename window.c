@@ -1,16 +1,32 @@
 /*!\file window.c
-*
-* \brief using GL4Dummies and Assimp Library to load 3D models or scenes.
-*
-* \author Farès Belhadj amsi@up8.edu
-* \date February 14 2017, modified on March 24, 2024
-*/
-#include "Jeu/jeu.cpp"
+ *
+ * \brief using GL4Dummies and Assimp Library to load 3D models or scenes.
+ *
+ * \author Farès Belhadj amsi@up8.edu
+ * \date February 14 2017, modified on March 24, 2024
+ */
+
 #include <GL4D/gl4duw_SDL2.h>
+#include <SDL_image.h>
+#include "assimp.h"
+#include "jeu.cpp"
 #include <GL4D/gl4dm.h>
 #include <GL4D/gl4dg.h>
 #include <GL4D/gl4dp.h>
-#include <SDL_image.h>
+#include <iostream>
+
+void clear_terminal(){
+  #ifdef __unix__
+     std::system("clear");
+  #elif _WIN32
+  std::system("cls");
+  #elif defined(__APPLE__)
+    std::system("cls");
+  #endif
+
+}
+
+using namespace std;
 
 #define X_INITIAL -2.5f
 #define Y_INITIAL 2.5f
@@ -86,25 +102,11 @@ enum kyes_t {
 /*!\brief virtual keyboard for direction commands */
 static GLuint _keys[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
-typedef struct cam_t cam_t;
-/*!\brief a data structure for storing camera position and
-* orientation */
-struct cam_t {
-GLfloat x, y, z;
-GLfloat theta;
-};
+GLfloat x = 0.0f, y = 0.0f, z = 1.0f;
+GLfloat theta = 0.0f;
 
-/*!\brief the used camera */
-static cam_t _cam = {0.0f, 0.0f, 1.0f, 0.0f};
-
-/*!\brief toggle y-axis rotation pause */
 static GLboolean _pause = GL_TRUE;
-
-/*!\brief toggle view focused on the scene center */
 static GLboolean _center_view = GL_FALSE;
-
-/*!\brief rotation angles according to axis (0 = x, 1 = y, 2 = z) 
-* \todo améliorer l'interface et ajouter rotations/zoom à la souris */
 static GLfloat rot[3] = {0, 0, 0};
 
 static void init(void);
@@ -117,6 +119,78 @@ static void keydown(int keycode);
 static void keyup(int keycode);
 static void jeu(void);
 static float *caseChoisie(float x, float y);
+
+/*!\brief identifiant de la scene générée par assimpGenScene */
+static GLuint _id_scene = 0;
+static GLuint _id_scene2 = 0;
+static GLuint _id_scene3 = 0;
+static GLuint _id_scene4 = 0;
+
+/*!\brief the main function.
+ */
+int main(int argc, char ** argv) {
+	//Creation du plateau
+	if (initialisationPlateau){
+		Plateau = new Pion**[COLONNE];
+		for (int i = 0; i < COLONNE; i++) {
+			Plateau[i] = new Pion*[LIGNE];
+			for (int j = 0; j < LIGNE; j++) {
+				Plateau[i][j] = nullptr;
+			}
+		}
+
+		Info_Joueurs Info_Joueurss;
+		Info_Plateau *Info_Plateaus = new Info_Plateau[sizeof(Info_Plateau)];
+
+		Chateau Chateau_Bleu{true};
+		Pion* Pion1 = &Chateau_Bleu;
+		Chateau Chateau_Rouge{false};
+		Pion* Pion2 = &Chateau_Rouge;
+
+
+		Pion1 -> SET_POS(9, 19);
+		Plateau[9][19] = Pion1;
+
+		Pion2 -> SET_POS(9, 0);
+		Plateau[9][0] = Pion2;
+
+		Info_Plateaus = refresh_plateau(Plateau);
+		cout << Info_Plateaus->Chateaux_0[0].i << endl;
+
+		//Plateau[9][0] -> affiche();
+	}
+
+	initialisationPlateau = false;
+	if(!gl4duwCreateWindow(argc, argv, "La Guerre des Couleurs", GL4DW_POS_UNDEFINED, GL4DW_POS_UNDEFINED,
+	_windowWidth, _windowHeight, GL4DW_RESIZABLE | GL4DW_SHOWN)) return 1;
+
+	_id_scene  = assimpGenScene("models/cfxidcuko5-Slenderman/Slenderman/Slenderman Model.obj");
+	_id_scene2 = assimpGenScene("models/67-m26-tank/m26.obj");
+	_id_scene3 = assimpGenScene("models/tcmi72kglyio-ft86ht/Castle grt67gh/Castle.obj");
+	_id_scene4 = assimpGenScene("models/32-tractor/tractor/Tractor.obj");
+	init();
+	atexit(quit);
+	gl4duwResizeFunc(resize);
+	gl4duwKeyUpFunc(keyup);
+	gl4duwKeyDownFunc(keydown);
+	gl4duwDisplayFunc(draw);
+	gl4duwIdleFunc(idle);
+	gl4duwMainLoop();
+  	return 0;
+}
+
+
+static void resize(int w, int h) {
+  _windowWidth = w; 
+  _windowHeight = h;
+  glViewport(0.0f, 0.0f, _windowWidth, _windowHeight);
+  gl4duBindMatrix("projectionMatrix");
+  gl4duLoadIdentityf();
+  gl4duFrustumf(-0.005f, 0.005f, -0.005f * _windowHeight / _windowWidth, 0.005f * _windowHeight / _windowWidth, 0.01f, 1000.0f);
+  /* même résultat en utilisant la fonction perspective */
+  /* gl4duPerspectivef(60.0f, (GLfloat)_windowWidth/(GLfloat)_windowHeight, 0.01f, 1000.0f); */
+  gl4duBindMatrix("modelViewMatrix");
+}
 
 static void init(void) {
 	glCullFace(GL_BACK);
@@ -137,90 +211,6 @@ static void init(void) {
 	gl4duLoadIdentityf();
 	gl4duFrustumf(-1, 1, -0.75, 0.75, 2.5, 1000);
 	resize(_windowWidth, _windowHeight);
-
-	
-	glBindTexture(GL_TEXTURE_2D, _texId[0]);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	SDL_Surface * s = SDL_LoadBMP("images/A.bmp");
-	assert(s);
-	assert(s->format->BytesPerPixel == 3);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, s->w, s->h, 0, GL_RGB, GL_UNSIGNED_BYTE, s->pixels);
-	SDL_FreeSurface(s);
-  	glBindTexture(GL_TEXTURE_2D, 0); 
-}
-
-int main(int argc, char ** argv) {
-	//Creation du plateau
-	if (initialisationPlateau){
-		Plateau = new Pion**[COLONNE];
-		for (int i = 0; i < COLONNE; i++) {
-			Plateau[i] = new Pion*[LIGNE];
-			for (int j = 0; j < LIGNE; j++) {
-				Plateau[i][j] = nullptr;
-			}
-		}
-
-		Info_Joueurs Info_Joueurss;
-		Info_Plateau *Info_Plateaus = new Info_Plateau[sizeof(Info_Plateau)];
-
-		Chateau Chateau_Bleu{true};
-		Pion* Pion1 = &Chateau_Bleu;
-		Paysan Paysans{true};
-		Pion* Pion_P = &Paysans;
-		Chateau Chateau_Rouge{false};
-		Pion* Pion2 = &Chateau_Rouge;
-
-		Guerrier Guerriers{false};
-		Pion* Pion_G = &Guerriers;
-		Seigneur Seigneurs{true};
-		Pion* Pion_S = &Seigneurs;
-
-		Pion1 -> SET_POS(9, 19);
-		Plateau[9][19] = Pion1;
-
-		Pion2 -> SET_POS(9, 0);
-		Plateau[9][0] = Pion2;
-
-		Pion_P -> SET_POS(9, 9);
-		Plateau[9][9] = Pion_P;
-
-		Pion_G -> SET_POS(9, 10);
-		Plateau[9][10] = Pion_G;
-
-		Pion_S -> SET_POS(0, 0);
-		Plateau[0][0] = Pion_S;
-
-		Info_Plateaus = refresh_plateau(Plateau);
-		cout << Info_Plateaus->Chateaux_0[0].i << endl;
-
-		Plateau[9][0] -> affiche();
-	}
-
-	initialisationPlateau = false;
-	if(!gl4duwCreateWindow(argc, argv, "La Guerre des Couleurs", GL4DW_POS_UNDEFINED, GL4DW_POS_UNDEFINED,
-	_windowWidth, _windowHeight, GL4DW_RESIZABLE | GL4DW_SHOWN)) return 1;
-
-
-	init();
-	atexit(quit);
-	gl4duwResizeFunc(resize);
-	gl4duwKeyUpFunc(keyup);
-	gl4duwKeyDownFunc(keydown);
-	gl4duwDisplayFunc(draw);
-	gl4duwIdleFunc(idle);
-	gl4duwMainLoop();
-	return 0;
-}
-
-static void resize(int w, int h) {
-	_windowWidth = w; 
-	_windowHeight = h;
-	glViewport(0.0f, 0.0f, _windowWidth, _windowHeight);
-	gl4duBindMatrix("projectionMatrix");
-	gl4duLoadIdentityf();
-	gl4duFrustumf(-0.005f, 0.005f, -0.005f * _windowHeight / _windowWidth, 0.005f * _windowHeight / _windowWidth, 0.01f, 1000.0f);
-	gl4duBindMatrix("modelViewMatrix");
 }
 
 // Fonction pour traiter les événements de souris
@@ -325,10 +315,25 @@ void handleMouseEvents() {
     		}
     	}
 	}
+
 static void idle(void) {
 	int i, j;
 	static float t0 = 0.0f;
 	float t, dt, dtheta = M_PI, step = 1.0f;
+	if(_keys[KLEFT]) theta += dt * dtheta;
+	if(_keys[KRIGHT]) theta -= dt * dtheta;
+	if(_keys[KPAGEUP]) y += dt * 0.5f * step;
+	if(_keys[KPAGEDOWN]) y -= dt * 0.5f * step;
+	if(_keys[KUP]) {
+		x += -dt * step * sin(theta);
+		z += -dt * step * cos(theta);
+	}
+	if(_keys[KDOWN]) {
+		x += dt * step * sin(theta);
+		z += dt * step * cos(theta);
+		_keys[KDOWN] = 0;
+	}
+
 	dt = ((t = (float)gl4dGetElapsedTime()) - t0) / 1000.0f;
 	t0 = t;
 
@@ -345,18 +350,6 @@ static void idle(void) {
 		tour = !tour;
 		cout << "Au tour de " << (tour ? "\x1b[34;1mdu joueur" : "\x1b[31;1mde l'adversaire") << endl << "\033[0mOr Joueur : " << or_joueur << endl << "Or Adversaire : " << or_adversaire << endl;
 		_keys[K_E] = 0;
-	}
-	if(_keys[KLEFT]) _cam.theta += dt * dtheta;
-	if(_keys[KRIGHT]) _cam.theta -= dt * dtheta;
-	if(_keys[KPAGEUP]) _cam.y += dt * 0.5f * step;
-	if(_keys[KPAGEDOWN]) _cam.y -= dt * 0.5f * step;
-	if(_keys[KUP]) {
-	_cam.x += -dt * step * sin(_cam.theta);
-	_cam.z += -dt * step * cos(_cam.theta);
-	}
-	if(_keys[KDOWN]) {
-	_cam.x += dt * step * sin(_cam.theta);
-	_cam.z += dt * step * cos(_cam.theta);
 	}
 
 	if(_keys[K_A]){
@@ -487,7 +480,6 @@ static void idle(void) {
 	}
 
 	if(!_pause) rot[1] += 90.0f * dt;
-	jeu();
 }
 
 static void keydown(int keycode) {
@@ -611,9 +603,6 @@ static void keyup(int keycode) {
 	}
 }
 
-static void jeu(void) {
-}
-
 //Case choisie par l'évenement de click de souris
 static float *caseChoisie(float x, float y){
 	float x_0 = 245.0f, x_19 = 755.0f;
@@ -637,41 +626,48 @@ static float *caseChoisie(float x, float y){
     return coordonnees;
 }
 
-static void draw() {
+static void draw(void) {
 	GLfloat lum[4] = {0.0f, 0.0f, 5.0f, 1.0f};
 	glClearColor(0.7f, 0.7f, 0.7f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glUseProgram(_pId);
 
 	glUniform4fv(glGetUniformLocation(_pId, "lumpos"), 1, lum);
-
 	gl4duBindMatrix("modelViewMatrix");
 	gl4duLoadIdentityf();
 
-	gl4duLookAtf(0.0f, 10.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, -1.0f);
+	gl4duLookAtf(x, y, z,
+	       x - sin(theta),  _center_view ? 0.0f : y,  z - cos(theta),
+	       0.0f, 1.0f, 0.0f);
+  
+  	gl4duRotatef(rot[1], 0.0f, 1.0f, 0.0f);
+	gl4duPushMatrix();
 
 	float y = Y_INITIAL;
 	for (int i = 0; i < LIGNE; i++) {
 		float x = X_INITIAL;
 		for (int j = 0; j < COLONNE; j++) {
 			if (Plateau[j][i] != nullptr){
-				glActiveTexture(GL_TEXTURE0);
-				/* on bind la texture _texId[0] */
-				glBindTexture(GL_TEXTURE_2D, _texId[0]);
-				glUniform1i(glGetUniformLocation(_pId, "myTexture"), 0);
+				gl4duLoadIdentityf();
+                gl4duTranslatef(x, y, -10.0f);
+                gl4duScalef(TAILLE_CASE, TAILLE_CASE, TAILLE_CASE);
+                gl4duSendMatrices();
+				if(Plateau[j][i] -> type() == 'S') assimpDrawScene(_id_scene);
+				else if(Plateau[j][i] -> type() == 'C') assimpDrawScene(_id_scene3);
+				else if(Plateau[j][i] -> type() == 'P') assimpDrawScene(_id_scene4);
+				else if(Plateau[j][i] -> type() == 'G') assimpDrawScene(_id_scene2);
+				gl4duPopMatrix();
 
-				//Plateau[j][i] -> affiche();
 				Plateau[j][i] -> RETURN_OWNER()
 				? glUniform4f(glGetUniformLocation(_pId, "diffuse_color"), 0.0f, 0.0f, 0.9f, 0.8f)
 				: glUniform4f(glGetUniformLocation(_pId, "diffuse_color"), 0.9f, 0.0f, 0.0f, 0.8f);
-
+				
 			}
-
 			else{
 				((i + j) % 2 == 0)
 				? glUniform4f(glGetUniformLocation(_pId, "diffuse_color"), 0.0f, 0.0f, 0.0f, 0.8f)
 				: glUniform4f(glGetUniformLocation(_pId, "diffuse_color"), 1.0f, 1.0f, 1.0f, 0.8f);
-				}
+			}
 
 			gl4duLoadIdentityf();
 			gl4duTranslatef(x, y, -10.0f);
@@ -684,11 +680,11 @@ static void draw() {
 		}
 		y -= TAILLE_CASE;
 	}
-
-	glUseProgram(0); // remise du programme à 0 à la fin
 }
 
+/*!\brief function called at exit, it cleans all created GL4D objects.
+ */
 static void quit(void) {
-	gl4duClean(GL4DU_ALL);
+  gl4duClean(GL4DU_ALL);
 }
 

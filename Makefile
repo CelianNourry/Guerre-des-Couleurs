@@ -1,4 +1,10 @@
+#  Makefile 
+#  Auteur : Farès BELHADJ
+#  Email  : amsi@up8.edu
+#  Date   : 08/04/2022, modifié le 25/03/2024
+# définition des commandes utilisées
 CC = g++
+CXX = g++
 ECHO = echo
 RM = rm -f
 TAR = tar
@@ -11,24 +17,38 @@ CFLAGS = -Wall -O3
 CPPFLAGS = -I.
 LDFLAGS = -lm
 # définition des fichiers et dossiers
-PACKNAME = test
+PACKNAME = objLoader
 PROGNAME = La_Guerre_des_Couleurs
-VERSION = 1.0
+VERSION = 1.2
 distdir = $(PACKNAME)_$(PROGNAME)-$(VERSION)
-HEADERS = 
-SOURCES = window.c
+HEADERS = assimp.h
+SOURCES = window.c assimp.c
 MSVCSRC = $(patsubst %,<ClCompile Include=\"%\\\" \\/>,$(SOURCES))
-OBJ = $(SOURCES:.c=.o)
+SSRC = $(SOURCES:.cpp=.o)
+ifeq ($(SOURCES), $(SSRC))
+# aucun fichier C++ dans les sources
+	LD = $(CC)
+else
+# au moins un fichier C++
+	LD = $(CXX)
+endif
+OBJ = $(SSRC:.c=.o)
 DOXYFILE = documentation/Doxyfile
 VSCFILES = $(PROGNAME).vcxproj $(PROGNAME).sln
-EXTRAFILES = COPYING $(wildcard shaders/*.?s images/*) $(VSCFILES)
+EXTRAFILES = README.md COPYING $(wildcard shaders/*.?s images/* audio/*) $(shell find models -type f) $(VSCFILES)
 DISTFILES = $(SOURCES) Makefile $(HEADERS) $(DOXYFILE) $(EXTRAFILES)
 # Traitements automatiques pour ajout de chemins et options (ne pas modifier)
+ifneq (,$(shell ls -d /opt/local/include 2>/dev/null | tail -n 1))
+	CPPFLAGS += -I/opt/local/include
+endif
 ifneq (,$(shell ls -d /usr/local/include 2>/dev/null | tail -n 1))
 	CPPFLAGS += -I/usr/local/include
 endif
 ifneq (,$(shell ls -d $(HOME)/local/include 2>/dev/null | tail -n 1))
 	CPPFLAGS += -I$(HOME)/local/include
+endif
+ifneq (,$(shell ls -d /opt/local/lib 2>/dev/null | tail -n 1))
+	LDFLAGS += -L/opt/local/lib
 endif
 ifneq (,$(shell ls -d /usr/local/lib 2>/dev/null | tail -n 1))
 	LDFLAGS += -L/usr/local/lib
@@ -37,18 +57,23 @@ ifneq (,$(shell ls -d $(HOME)/local/lib 2>/dev/null | tail -n 1))
 	LDFLAGS += -L$(HOME)/local/lib
 endif
 ifeq ($(shell uname),Darwin)
-	MACOSX_DEPLOYMENT_TARGET = 10.8
-        CFLAGS += -mmacosx-version-min=$(MACOSX_DEPLOYMENT_TARGET)
-        LDFLAGS += -framework OpenGL -mmacosx-version-min=$(MACOSX_DEPLOYMENT_TARGET)
+	MACOSX_DEPLOYMENT_TARGET = 11.0
+        CFLAGS   += -mmacosx-version-min=$(MACOSX_DEPLOYMENT_TARGET)
+        LDFLAGS  += -framework OpenGL -mmacosx-version-min=$(MACOSX_DEPLOYMENT_TARGET)
 else
-        LDFLAGS += -lGL
+        LDFLAGS  += -lGL
 endif
 CPPFLAGS += $(shell sdl2-config --cflags)
-LDFLAGS  += -lGL4Dummies $(shell sdl2-config --libs)
+LDFLAGS  += -lGL4Dummies $(shell sdl2-config --libs) -lSDL2_image -lassimp
+
 all: $(PROGNAME)
 $(PROGNAME): $(OBJ)
-	$(CC) $(OBJ) $(LDFLAGS) -o $(PROGNAME)
+	$(LD) $(OBJ) $(LDFLAGS) -o $(PROGNAME)
+%.o: %.cpp
+	@echo $(SSRC) $(SOURCES)
+	$(CXX) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
 %.o: %.c
+	echo $(SSRC) $(SOURCES)
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
 dist: distdir
 	$(CHMOD) -R a+r $(distdir)
