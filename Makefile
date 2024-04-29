@@ -3,7 +3,7 @@
 #  Email  : amsi@up8.edu
 #  Date   : 08/04/2022, modifié le 25/03/2024
 # définition des commandes utilisées
-CC = g++
+CC = gcc
 CXX = g++
 ECHO = echo
 RM = rm -f
@@ -22,7 +22,7 @@ PROGNAME = La_Guerre_des_Couleurs
 VERSION = 1.2
 distdir = $(PACKNAME)_$(PROGNAME)-$(VERSION)
 HEADERS = assimp.h
-SOURCES = window.c assimp.c
+SOURCES = window.cpp assimp.c
 MSVCSRC = $(patsubst %,<ClCompile Include=\"%\\\" \\/>,$(SOURCES))
 SSRC = $(SOURCES:.cpp=.o)
 ifeq ($(SOURCES), $(SSRC))
