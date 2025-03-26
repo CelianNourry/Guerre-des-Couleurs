@@ -15,17 +15,6 @@
 #include <GL4D/gl4dp.h>
 #include <iostream>
 
-void clear_terminal(){
-  #ifdef __unix__
-     std::system("clear");
-  #elif _WIN32
-  std::system("cls");
-  #elif defined(__APPLE__)
-    std::system("cls");
-  #endif
-
-}
-
 using namespace std;
 
 #define X_INITIAL -2.5f
@@ -89,7 +78,7 @@ enum kyes_t {
 	KDOWN,
 	KPAGEUP,
 	KPAGEDOWN,
-	K_E,
+	K_E, // Finir le tour
 	K_C, //Veut créer un personnage depuis un château
 	K_G, //Guerrier
 	K_S, //Seigneur
@@ -117,7 +106,6 @@ static void idle(void);
 static void draw(void);
 static void keydown(int keycode);
 static void keyup(int keycode);
-static void jeu(void);
 static float *caseChoisie(float x, float y);
 
 /*!\brief identifiant de la scene générée par assimpGenScene */
@@ -126,10 +114,9 @@ static GLuint _id_scene2 = 0;
 static GLuint _id_scene3 = 0;
 static GLuint _id_scene4 = 0;
 
-/*!\brief the main function.
- */
+/*!\brief the main function.*/
 int main(int argc, char ** argv) {
-	//Creation du plateau
+	// Creation du plateau
 	if (initialisationPlateau){
 		Plateau = new Pion**[COLONNE];
 		for (int i = 0; i < COLONNE; i++) {
@@ -155,9 +142,7 @@ int main(int argc, char ** argv) {
 		Plateau[9][0] = Pion2;
 
 		Info_Plateaus = refresh_plateau(Plateau);
-		cout << Info_Plateaus->Chateaux_0[0].i << endl;
-
-		//Plateau[9][0] -> affiche();
+		cout << Info_Plateaus -> Chateaux_0[0].i << endl;
 	}
 
 	initialisationPlateau = false;
@@ -187,8 +172,6 @@ static void resize(int w, int h) {
   gl4duBindMatrix("projectionMatrix");
   gl4duLoadIdentityf();
   gl4duFrustumf(-0.005f, 0.005f, -0.005f * _windowHeight / _windowWidth, 0.005f * _windowHeight / _windowWidth, 0.01f, 1000.0f);
-  /* même résultat en utilisant la fonction perspective */
-  /* gl4duPerspectivef(60.0f, (GLfloat)_windowWidth/(GLfloat)_windowHeight, 0.01f, 1000.0f); */
   gl4duBindMatrix("modelViewMatrix");
 }
 
@@ -204,7 +187,6 @@ static void init(void) {
 	gl4duGenMatrix(GL_FLOAT, "projectionMatrix");
 	gl4duGenMatrix(GL_FLOAT, "model");
 
-	GLuint pixels[] = { RGBA(255, 255, 255, 255), 0 };
 	glGenTextures(2, _texId);
 
 	gl4duBindMatrix("projectionMatrix");
@@ -226,7 +208,6 @@ void handleMouseEvents() {
                     mouseClickPending = true;
 
 					float *coordonnees = caseChoisie(mouseX, mouseY);
-					//cout << (int)coordonnees[0] << ", " << (int)coordonnees[1] << endl;
 
 					if ((int)coordonnees[0] != -1 && (int)coordonnees[1] != -1){
 						i = (int)coordonnees[0], j = (int)coordonnees[1];
@@ -286,11 +267,13 @@ void handleMouseEvents() {
 							else if (ATK_POS_X < i) direction = 'D'; //Droite
 							else if (ATK_POS_Y > j) direction = 'B'; //Bas
 							else if (ATK_POS_Y < j) direction = 'H'; //Haut
+							else direction = 'N'; // Valeur fallback
 
 							if (direction == 'G') nb_case_deplacee = (ATK_POS_X + 1) - (i + 1);
 							else if (direction == 'D') nb_case_deplacee = (i + 1) - (ATK_POS_X + 1);
 							else if (direction == 'B') nb_case_deplacee = (ATK_POS_Y + 1) - (j + 1);
 							else if (direction == 'H') nb_case_deplacee = (j + 1) - (ATK_POS_Y + 1);
+							else direction = 'N'; // Valeur fallback
 
 							//Vérifier si on ne va pas trop loin
 							if (nb_case_deplacee > 1) cout << "Vous devez attaquer un pion devant vous" << endl;
@@ -307,9 +290,7 @@ void handleMouseEvents() {
 							}
 						}
             		}
-					else{
-						cout << "Veuillez choisir des coordonées sur le plateau" << endl;
-					}
+					else cout << "Veuillez choisir des coordonées sur le plateau" << endl;
                 }
                 break;
     		}
@@ -317,9 +298,12 @@ void handleMouseEvents() {
 	}
 
 static void idle(void) {
-	int i, j;
 	static float t0 = 0.0f;
 	float t, dt, dtheta = M_PI, step = 1.0f;
+
+	dt = ((t = (float)gl4dGetElapsedTime()) - t0) / 1000.0f;
+	t0 = t;
+
 	if(_keys[KLEFT]) theta += dt * dtheta;
 	if(_keys[KRIGHT]) theta -= dt * dtheta;
 	if(_keys[KPAGEUP]) y += dt * 0.5f * step;
@@ -334,11 +318,7 @@ static void idle(void) {
 		_keys[KDOWN] = 0;
 	}
 
-	dt = ((t = (float)gl4dGetElapsedTime()) - t0) / 1000.0f;
-	t0 = t;
-
 	if (_keys[K_E] && !CC_which_one && !CC_which_character && !CC_confirmation && !MC_which_one && !MC_where && !MC_confirmation){
-		clear_terminal();
 		Info_Plateaus = refresh_plateau(Plateau);
 		Info_Joueurss.GAIN_PASSIF_OR(Plateau, Info_Plateaus);
 		int or_joueur = Info_Joueurss.RETURN_OR(true), or_adversaire = Info_Joueurss.RETURN_OR(false);
@@ -439,8 +419,6 @@ static void idle(void) {
 	if (MC_where){
 		if (!did_MC_confirmation) *DEPLACEMENTS_RESTANTS = Plateau[MC_POS_X][MC_POS_Y] -> GET_VITS(); // On stocke de combien de case le pion peut nse déplacer
 		if (*DEPLACEMENTS_RESTANTS > 0){
-			//cout << "Emplacement personnage reçu" << endl;
-			//cout << *DEPLACEMENTS_RESTANTS << endl;
 			did_MC_confirmation = true;
 			handleMouseEvents();
 		}
@@ -544,11 +522,6 @@ static void keydown(int keycode) {
 		case GL4DK_SPACE:
 			_pause = !_pause;
 			break;
-		/*
-		case GL4DK_c:
-			_center_view = !_center_view;
-			break;
-		*/
 		default:
 			break;
 	}
@@ -603,7 +576,7 @@ static void keyup(int keycode) {
 	}
 }
 
-//Case choisie par l'évenement de click de souris
+// Case choisie par l'évenement de click de souris
 static float *caseChoisie(float x, float y){
 	float x_0 = 245.0f, x_19 = 755.0f;
 	float y_0 = 115.0f, y_19 = 625.0f;
@@ -614,7 +587,7 @@ static float *caseChoisie(float x, float y){
 			if (x > caseActuelle) coordonnees[0] = i;
 		}
 	}
-	else coordonnees[0] = -1.0f; //Cas où le lick dépasse le tableau
+	else coordonnees[0] = -1.0f; // Cas où le lick dépasse le tableau
 
 	if (y >= y_0 && y <= y_19){
 		for (float i = 0.0f, caseActuelle = y_0; (int)i < LIGNE; i++, caseActuelle += (y_19 - y_0) / LIGNE){
@@ -682,8 +655,7 @@ static void draw(void) {
 	}
 }
 
-/*!\brief function called at exit, it cleans all created GL4D objects.
- */
+/*!\brief function called at exit, it cleans all created GL4D objects.*/
 static void quit(void) {
   gl4duClean(GL4DU_ALL);
 }

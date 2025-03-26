@@ -4,7 +4,7 @@
 #define OR_INITIAL 500
 
 int Pion::deplacement(Pion*** Plateau, int MC_POS_X, int MC_POS_Y, int MC_POS_WHERE_X, int MC_POS_WHERE_Y, int *DEPLACEMENTS_RESTANTS){
-    char direction;
+    char direction = 'N';
     int nb_case_deplacee = 0;
     if (MC_POS_WHERE_X != MC_POS_X && MC_POS_WHERE_Y != MC_POS_Y) return -1;
 
@@ -17,6 +17,7 @@ int Pion::deplacement(Pion*** Plateau, int MC_POS_X, int MC_POS_Y, int MC_POS_WH
     else if (direction == 'D') nb_case_deplacee = (MC_POS_WHERE_X + 1) - (MC_POS_X + 1);
     else if (direction == 'B') nb_case_deplacee = (MC_POS_Y + 1) - (MC_POS_WHERE_Y + 1);
     else if (direction == 'H') nb_case_deplacee = (MC_POS_WHERE_Y + 1) - (MC_POS_Y + 1);
+    else nb_case_deplacee = 0;
 
     //Vérifier si on ne va pas trop loin
     if (nb_case_deplacee > *DEPLACEMENTS_RESTANTS) return -2;
